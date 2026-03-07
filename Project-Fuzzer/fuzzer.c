@@ -79,30 +79,91 @@ int main(int argc, char* argv[])
 {
     tar_t header;
 
-    /* unsigned long file_size = 1000;    Déclaration d'une variable pour la taille du fichier en entrée*/
-
-
     memcpy(header.magic, TMAGIC, TMAGLEN);
     memcpy(header.version, TVERSION, TVERSLEN);
+
+    unsigned long size_bytes = 512;
+
+    if (argc < 2){
+        fprintf(stderr, "Usage: %s <extracteur>\n", argv[0]);
+        return 1;
+    }
+    char *extracteur = argv[1];
+
+
+    init_header(&header, "Elvira.txt", '0', 1000);    // Créer un header
+    calculate_checksum(&header);
+
+
+    FILE *f = fopen("archive.tar", "wb");
+    if (f == NULL){
+        fprintf(stderr, "Erreur: impossible de créer archive.tar\n");
+        return 1;
+    }
+    fwrite(&header, 1, 512, f);
+
+    // Ecriture du contenu et padding 
+    if (size_bytes > 0){
+        char *content = malloc(size_bytes);
+        memset(content, 'A', size_bytes);
+        fwrite(content, 1, size_bytes, f);
+        free(content);
+
+        unsigned long padding = (512 - (size_bytes % 512)) % 512;
+        char zeros[512];
+        memset(zeros, 0, sizeof(zeros));
+        fwrite(zeros, 1, padding, f);
+
+    }
+
+    // Bloc de fin
+    char zeros[1024];
+    memset(zeros, 0, sizeof(zeros));
+    fwrite(zeros, 1, 1024, f);
+
+    fclose(f);   //fermeture du fichier
+
+    char cmd[256];
+    snprintf(cmd, sizeof(cmd), "%s archive.tar",extracteur);
+
+     FILE *pipe = popen(cmd, "r");  // 1. Exécution
+    if (pipe == NULL) {
+        fprintf(stderr, "Erreur: impossible de lancer l'extracteur\n");
+        return 1;
+    }
+
+    char ligne[256];
+    while (fgets(ligne, sizeof(ligne), pipe) != NULL) {  // 2. Lecture ligne par ligne
+        if (strstr(ligne, "*** The program has crashed ***")) {  // 3. Analyse
+            printf("CRASH DÉTECTÉ !\n");
+        }
+    }
+
+    pclose(pipe);  // 4. Fermeture
+
+    // Ecriture du contenu de l'archive
+
+    
+
+    return 0;
+
+    /* unsigned long file_size = 1000;    Déclaration d'une variable pour la taille du fichier en entrée*/
+
 
     /*snprintf(header.size, 12, "%011lo", file_size);
     printf("%s\n", header.size);
     return 0;             test de conversion de la taille d'un fichier en octal*/ 
     
-    /*printf("size on the header: %zu bytes\n", sizeof(tar_t));  vérification de la taille de la structure*/
+    /*printf("size of the header: %zu bytes\n", sizeof(tar_t));  vérification de la taille de la structure*/
 
-    // Créer un header
-    init_header(&header, "Elvira.txt", '0', 1000);
-
+  
     //Calculer son checksum
-    calculate_checksum(&header);
-
-    // Ecrire dans test.tar
-    FILE *f = fopen("test.tar", "wb");
-    fwrite(&header, 1, 512, f);
-    fclose(f);
     
-    printf("test.tar créé !\n");
-    return 0;
+    // Ecrire dans test.tar
+    
+    
+    // printf("archive.tar créé !\n");
+
+
 
 }
